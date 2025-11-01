@@ -1,0 +1,36 @@
+body {
+  padding: 100px;
+  line-height: 25px;
+  font-size: 20px; /* Base font size */
+  font-family: times;
+/*  font-family: arial, serif;*/
+}
+pre {
+	padding: 10px;
+	background-color: #000000;
+  color: white; 
+  font-size: 16px;
+}
+h2 {
+  color: red; 
+  font-family: arial, serif;
+}
+h3 {
+  color: red; 
+  font-family: arial, serif;
+}
+h4 {
+  color: red; 
+  font-family: times
+}
+code {
+	background-color: #E6E6E6;
+  font-size: 18px;
+	color: green;
+}
+em {
+  font-family: courier;
+}
+figcaption {
+  color: blue; 
+}

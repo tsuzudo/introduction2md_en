@@ -1,0 +1,191 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Inserting Dislocation Loop</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br><h2>Inserting Dislocation Loop</h2></center>
+<br>
+
+<h3>Overview of Dislocation Loop</h3>
+This lecture introduces a method for inserting a dislocation loop into iron crystals. As discussed in the lecture on <a href="edge_en.html">Inserting Edge Dislocation</a>, an edge dislocation is a lattice defect formed when an extra plane spans over half-space. A dislocation loop is similar; this defect is formed when this extra plane is disk-shaped. When a disk-shaped plane is missing, it is also called a dislocation loop, but we don't discuss such types here. 
+
+The actual formation of a dislocation loop involves interstitial atoms, generated from the displacement process of atoms learned in a previous lecture, <a href="cascade_en.html">Radiation Damage</a>, aggregating into a planar structure. Therefore, this lecture is of interest for audience studying materials for nuclear/fusion power, and accelerators.<br><br>
+
+<h3>Strategy of Script</h3>
+
+Let's outline how we make a dislocation loop. Look at <b>Fig. 1</b> below. Consider creating a dislocation loop at the center of the simulation box. First, define a sphere such that the dislocation loop becomes its equator. Thus, the radius and the center of the dislocation loop become identical to those of the sphere. Next, define a thin disc with the Burgers vector thickness of the dislocation loop inside the sphere. In this case the Burgers vector is <em>(1/2)<111></em>. The blue shaded area in the figure represents this thin disc. Finally, duplicate all atoms within that region to double the number of atoms. After structural relaxation, the dislocation loop will be inserted.<br>
+<br>
+<figure><center><img src="loop_en.png" width="400"><br><br><figcaption>Fig.1: Schematic Picture for Creating a dislocation Loop; The blue shaded part is a disc where the dislocation loop is inserted.</figcaption></figure></center>
+<br>
+
+<h3>Execution of Script</h3>
+
+<em>bccFe_111loop_relax.lcm</em> is the LAMMPS input script for inserting a dislocation loop with a Burgers vector of <em>(1/2)<111></em> into a BCC iron crystal. Execute it using the following command:
+<pre>
+$work> lmp_serial -in script/bccFe_111loop_relax.lcm
+</pre>
+
+As with edge and screw dislocations, analyzing the dumped file <em>bccFe_111loop_relax.out</em> using DXA in OVITO allows you to verify whether the calculation was successful. In this case, you should be able to confirm the presence of a circular dislocation. Confirm that the Burgers vector is (1/2)<111> in the lower part of the DXA panel. Also, as learned in the previous lecture on <a href="screw_en.html">Inserting Screw Dislocation</a>, highlight "Dislocations" to verify it is an edge dislocation. If you processed LAMMPS and OVITO correctly, the result should look like the figure below.<br><br>
+<br>
+<center><figure><img src="bccFe_111loop_relax.png" width="900"><br><br><figcaption>Fig.2: OVITO's snapshot after DXA<figcaption></figure></center>
+<br>
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+<h4>Defining Variables</h4>
+
+<pre>
+variable 	x_box equal 48
+variable 	y_box equal 48
+variable 	z_box equal 48
+variable	radius equal 5
+variable 	lc equal 2.862
+</pre>
+
+First of all, define important variables. These include the box dimensions in the <em>x</em>, <em>y</em>, <em>z</em> directions, the dislocation loop radius, and the lattice constant.
+
+<h4>Creating Base Crystal</h4>
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+lattice		bcc ${lc} orient x 1 0 0 orient y 0 1 0 orient z 0 0 1  
+region 		box block 0 ${x_box} 0 ${y_box} 0 ${z_box} units box
+create_box 	1 box
+create_atoms 1 box
+</pre>
+
+Since this block has appeared several times, we'll skip the explanation.
+
+<h4>Defining Interatomic Force</h4><pre>
+pair_style eam/fs
+pair_coeff * * ./potentials/Fe_Ackland04_ZBL.eam.fs Fe
+neigh_modify 	every 1 delay 0 check yes
+</pre>
+
+I believe no explanation is necessary for this block too.
+
+<h4>Defining a Sphere</h4>
+<pre>
+variable 	loop_x_center equal ${x_box}/2
+variable 	loop_y_center equal ${y_box}/2
+variable 	loop_z_center equal ${z_box}/2
+region sphere1 sphere ${loop_x_center} ${loop_y_center} ${loop_z_center} ${radius} units box
+group sphere1 region sphere1
+</pre>
+
+The first three lines define the center position of the sphere, which later will become the center of the dislocation loop as shown in <b>Fig. 1</b>, at the center of the simulation box.<br><br>
+
+Next, use the <code>region ... sphere</code> command to define a spherical region with a radius equal to the dislocation loop's radius at the loop's center position. The reason for creating the sphere is mentioned above.<br><br>
+
+Then, use <code>group</code> command to group all atoms contained within that spherical region.<br><br>
+
+<h4>Defining the Burgers Vector</h4>
+<pre>
+variable	burgers_x equal 1.
+variable	burgers_y equal 1.
+variable	burgers_z equal 1.
+variable	b_norm equal & 
+  (${lc}/2)*sqrt(3./(${burgers_x}*${burgers_x}+${burgers_y}*${burgers_y}+${burgers_z}*${burgers_z}))
+variable	x_norm equal  ${burgers_x}*${b_norm}
+variable	y_norm equal  ${burgers_y}*${b_norm}
+variable	z_norm equal  ${burgers_z}*${b_norm}
+</pre>
+This block defines the Burgers vector <em>(1/2)[111]</em>.<br><br>
+
+The first three lines define only the direction of the vector.<br><br>
+
+The next line calculates the coefficient for adjusting the length of the Burgers vector.<br><br>
+
+The last three lines calculate the three components of the Burgers vector whose length has been adjusted.<br><br>
+
+<h4>Defining Disc Where Dislocation Loop is Inserted</h4>
+<pre>
+variable	tuning_factor equal 0.5
+variable 	loop_x_high equal ${loop_x_center}+${x_norm}/2-${tuning_factor}
+variable 	loop_y_high equal ${loop_y_center}+${y_norm}/2-${tuning_factor}
+variable 	loop_z_high equal ${loop_z_center}+${z_norm}/2-${tuning_factor}
+region plane1 plane ${loop_x_high} ${loop_y_high} ${loop_z_high} & 
+          ${x_norm} ${y_norm} ${z_norm} side out units box
+</pre>
+
+Now, we'll define a disk of thickness for the Burgers vector and insert atoms into that region. However, defining the disk region directly is difficult, so we first define the half-space below the top surface of the disk.<br><br>
+
+The <em>tuning_factor</em> used here is an empirically determined parameter intended to prevent the plane's position from overlapping with atomic positions when defining the plane. Without the tuning factor, the script may lead to unstable results.<br><br>
+
+In the last line, <em>plane1</em> is defined as the half-space below the top surface of the disk. Please refer to <a href="https://docs.lammps.org/region.html">the manual</a> of <code>region</code> for the keyword of <code>side</code>.<br><br>
+
+Here is the next block:
+
+<pre>
+variable 	loop_x_low equal ${loop_x_center}-${x_norm}/2-${tuning_factor}
+variable 	loop_y_low equal ${loop_y_center}-${y_norm}/2-${tuning_factor}
+variable 	loop_z_low equal ${loop_z_center}-${z_norm}/2-${tuning_factor}
+region plane2 plane ${loop_x_low} ${loop_y_low} ${loop_z_low} ${x_norm} ${y_norm} ${z_norm} side in units box
+</pre>
+
+The first three lines define a point on the bottom surface of the dick. 
+
+In the last line, <em>plane2</em> is defined as the half-space above the bottom surface of the disk. 
+
+<pre>
+region cylinder1 intersect 3 sphere1 plane1 plane2
+group cylinder1 region cylinder1
+</pre>
+Here, we define the intersection of the sphere and the two region of half space as a new region. This is the disk we seek, that is, the region that becomes the <b>extra plane</b>.<br><br>
+
+Then, <code>group</code> the atoms belonging to the disc region.
+
+<h4>Inserting Extra Atoms into the Disc</h4>
+<pre>
+variable shift_x equal  ${x_norm}/3.
+variable shift_y equal  ${y_norm}/3.
+variable shift_z equal  ${z_norm}/3.
+displace_atoms cylinder1 move ${shift_x} ${shift_y} ${shift_z}
+</pre>
+Before inserting atoms, shift all atoms belonging to the disk by <em>b/3</em> in the Burgers vector direction. This process prevents the newly inserted atoms from unstable behavior by overlapping them with the existing atoms.
+<pre>
+create_atoms 1 region cylinder1
+</pre>
+
+Place atoms at all lattice sites within this region. This adds one extra crystal plane to this region.
+
+<h4>Structural Relaxation</h4>
+<pre>
+variable	dump_interval equal 200
+fix 1 all box/relax iso 0.0 vmax 0.001
+thermo ${dump_interval}
+thermo_style custom step pe lx ly lz press pxx pyy pzz etotal
+dump 	1 all custom ${dump_interval} bccFe_111loop_relax.out id type xs ys zs
+min_style cg 
+minimize 1e-12 1e-6 50000 10000
+</pre>
+The final block is devoted to structural relaxation. Through relaxation, the newly introduced crystal planes and the original crystal planes will have an optimal distance. This results in a dislocation loop forming at the center of the block.<br><br>
+
+This lecture might have been challenging since we used some complex operations. In particular, we introduced the new usages of <code>region</code> command but didn't go into detailed explanations. However, the audience who've come to this lecture should now be able to look them up in the <a href="https://docs.lammps.org/region.html">LAMMPS manual for <code>region</code></a>.<br><br>
+
+<h4>Discussions</h4>
+There may be easier ways to insert dislocation loops than the method described here, but once you know one approach that works, you can treat it as a black box. The crucial point here is that the dislocation loops generated by irradiation can be modeled in MD. If this is possible, it opens up various application possibilities, such as dislocation loop migration and interactions between dislocation loops and other lattice defects. These are important issues to evaluate long-term degradation of materials under irradiation. <br><br>
+
+Dislocation loops are known to suppress plastic deformation because they act as obstacles to dislocation motion that is in charge of plastic deformation. Such situations can also be reproduced using MD. An example is shown in the video below.
+<center>
+<figure>
+<video width="500" controls>
+  <source src="dis_loop_interaction.avi" type="video/avi">
+  Your browser does not support the video tag.
+</video>
+
+<br><figcaption>
+Video 1: Confirm that <font color="magenta">red</font> dislocation loop acts as obstacle to the motion of <font color="green">green</font> edge dislocation. See more detail at Du et al., <a href="https://www.sciencedirect.com/science/article/abs/pii/S2589152920301952">Materialia 12 (2020) 100778</a>.
+</figcaption>
+<figure></center><br><br><br>
+
+<center><a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious:<a href="screw_en.html">Inserting Screw Dislocation</a></center>
+<br><br>
+</body>
+</html>

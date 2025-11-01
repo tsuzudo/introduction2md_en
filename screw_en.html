@@ -1,0 +1,139 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Inserting Screw Dislocation</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br><h2>Inserting Screw Dislocation</h2></center>
+<br>
+
+<H3>Overview of Screw Dislocations</h3>
+Similar to the edge dislocation learned in the previous lecture on <a href="edge_en.html">Inserting Edge Dislocation</a>, screw dislocations significantly influence a material's plastic deformation and strength. This lecture introduces a method for inserting a screw dislocation into iron crystal.<br><br>
+
+To briefly describe what a screw dislocation is as a lattice defect, imagine a sheet of paper in a flat surface like a desk and tear it vertically. Below is a diagram showing a single crystal plane extracted from an iron crystal with a screw dislocation inserted. The left side of the plane is connected, while the right side is separated. In actual materials, due to their thickness, you must think of it as a three-dimensional structure where multiple planes of the same shape are stacked.<br><br>
+
+<center>
+<figure><img src="Screw_dis_plane.png" alt="screw dislocation" width="500"><br><br><figcaption>Fig.1: Atomic displacement on a single  {111} plane of iron crystal when a screw dislocation is inserted. <br>For further information see Suzudo et al., <a href="https://iopscience.iop.org/article/10.1088/1361-651X/ab235e/meta">Modelling and Simulation in Materials Science and Engineering 27 (6), 064001 (2019).]</a></figcaption></figure>
+</center><br>
+
+
+<h3>Strategy to Insert Screw Dislocation</h3>
+Therefore, to create such a lattice defect, it is necessary to cut perfect planes as shown in the figure above.<br><br>
+
+First, consider an orthogonal crystal system such as the one in <b>Fig.2</b> below and a rectangular iron crystal placed within it. Divide this rectangular crystal into four regions labeled I through IV, as shown in the figure. Think of the entire crystal region as a wardrobe for storing clothes, and each divided region as a drawer. As we learned previously, iron crystal atoms are arranged periodically along the <em>x</em>-direction, the <em><111></em> direction. Let the vector representing one unit cell width, the Burgers vector, be denoted as b<b>x</b>. By moving each "drawer" along the <em>x</em>-direction as described in the figure and relaxing the structure, we can introduce a tear such as the one in Fig.1. Some might wonder, "Can we really create a screw dislocation this way?" Surprisingly, it works.<br><br>
+
+<center><figure><img src="insert_screw_en.png" width="600"><br><br><figcaption>Fig.2: Schematic Picture for How to Insert a Screw Dislocation</figcaption></figure></center><br>
+
+
+<h3>Execution of Script</h3>
+<em>bccFe_screw_relax.lcm</em> is the input script that implements the procedure for inserting a screw dislocation into iron crystals using the method described above. Execute it using the following command line input.
+
+<pre>
+$work> lmp_serial -in script/bccFe_screw_relax.lcm
+</pre>
+
+As with inserting an edge dislocation, you can verify the results by examining the dumped file <em>bccFe_screw_relax.out</em>. Load the file into OVITO. As seen in the figure below, execute DXA from the <em>Add Modification</em> pull-down menu in the right panel of OVITO, uncheck <em>Particles</em> under <em>Visual elements</em>, and click <em>Dislocations</em>. Selecting <em>Local character (<font color="red">screw</font>/<font color="blue">edge</font>)</em> further down confirms the dislocation is a screw dislocation, as the obtained dislocation appears as a red line as shown in <b>Fig.3</b> below.<br><br>
+
+<center><figure><img src="bccFe_screw_relax.png" width="900"><br><br><figcaption>Fig.3: Operations in OVITO to identify screw dislocations</figcaption></figure></center><br><br>
+
+When a screw dislocation is inserted, the <em>x</em>-plane, i.e., {1 1 1} crystal plane, becomes torn as shown in <b>Fig. 1</b>. The displacement vector of the torn plane, as mentioned above, is <b>b</b> = 1/2<111>. This is the Burgers vector of this screw dislocation. Therefore, the Burgers vector is the same as in the case of the edge dislocation discussed in the previous lecture. As can be seen in the OVITO snapshot diagram in <b>Fig.3</b>, the direction of the dislocation line is parallel to the Burgers vector, i.e., the x (i.e., <111>) direction (see the coordinate arrows at the left-bottom corner of the OVITO diagram). This differs from the case of edge dislocations, where the Burgers vector and the direction of the dislocation line are perpendicular to each other.
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+<h4>Defining Variables</h4>
+<pre>
+variable 	x_box equal 20
+variable 	y_box equal 20
+variable 	z_box equal 20
+variable 	lc equal 2.83
+</pre>
+First of all, variables assigned to the box size and lattice constant are defined.
+
+<pre>
+variable 	vacuum_width equal 1.9
+variable 	vacuum_low equal ${vacuum_width}
+variable 	vacuum_high_z equal ${z_box}-${vacuum_width}
+variable 	vacuum_high_y equal ${y_box}-${vacuum_width}
+</pre>
+To perform the "drawer" movement described in Fig.2, the boundaries in the <em>y</em> and <em>z</em> directions must be free, so a vacuum must be introduced at those boundaries. I hope this technique is already familier with you. The script above defines variables used to introduce the vacuum. How they are used will be clear later in the script.
+
+<h4>Creating Base Crystal</h4>
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+lattice	bcc ${lc} orient x 1 1 1 orient y 1 1 -2 orient z -1 1 0
+region box block 0 ${x_box} 0 ${y_box} 0 ${z_box}
+create_box 1 box
+create_atoms 1 box                
+</pre>
+
+The above script block is almost identical to <a href="edge_en.html">Inserting Edge Dislocation</a>. No further explanation is given here.
+                
+<h4>Creating Vacuum Layers</h4>
+<pre>
+region lower_vacuum_z block INF INF INF INF INF ${vacuum_low}
+delete_atoms region lower_vacuum_z
+region upper_vacuum_z block INF INF INF INF ${vacuum_high_z} INF
+delete_atoms region upper_vacuum_z
+</pre>
+As mentioned above, this block describes the creation of vacuum regions near the <em>z</em>-direction boundaries.
+<pre>
+region lower_vacuum_y block INF INF INF ${vacuum_low} INF INF
+delete_atoms region lower_vacuum_y
+region upper_vacuum_y block INF INF ${vacuum_high_y} INF INF INF
+delete_atoms region upper_vacuum_y
+</pre>
+
+This block performs the same boundary processing in the <em>y</em> direction as done in the <em>z</em> direction.
+
+<h4>Defining Regions I through IV</h4>
+<pre>
+variable	y_box_half equal ${y_box}/2.+0.167
+variable	z_box_half equal ${z_box}/2.+0.167
+region block_one block INF INF ${y_box_half} INF ${z_box_half} INF
+region block_two block INF INF INF ${y_box_half} ${z_box_half} INF
+region block_three block INF INF INF ${y_box_half} INF ${z_box_half}
+region block_four block INF INF ${y_box_half} INF INF ${z_box_half}
+</pre>
+Here, define the four regions explained in Fig.2. Slight tune by "0.167" is to avoid unstable results by hitting the boundaries onto atoms.
+<pre>
+group block_one region block_one
+group block_two region block_two
+group block_three region block_three
+group block_four region block_four
+</pre>
+Then, define the groups of atoms in each partitioned region (i.e. "drawer") as <em>groups</em>.
+
+<h4>Shifting "Drawers"</h4>
+<pre>
+displace_atoms block_one move 0.000 0 0 units lattice
+displace_atoms block_two move 0.125 0 0 units lattice
+displace_atoms block_three move 0.25 0 0 units lattice
+displace_atoms block_four move -0.125 0 0 units lattice
+</pre>
+<code>displace_atoms</code> command moves atoms within the specified group. Here, it moves atoms within each "drawer" by the distances shown in <b>Fig.2</b>. Actually, the first line of this script block is unnecessary since the atom displacement distance is 0.0 Angstrom, but it was described for enhancing clarity and readability.
+
+<h4>Structural Relaxation</h4>
+<pre>
+pair_style eam/fs 
+pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+neigh_modify every 1 delay 0 check yes
+fix 1 all box/relax iso 0.0 vmax 0.001
+thermo 1000
+thermo_style custom step pe lx ly lz pxx pyy pzz
+dump 1 all custom 100 bccFe_screw_relax.out mass type xs ys zs
+min_style cg 
+minimize 1e-25 1e-12 50000 10000 
+</pre>
+In this final block, the whole simulation box is structurally relaxed, and the screw dislocation should appear.
+<br><br><br><br>
+
+<center><a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="edge_en.html">Inserting Edge Dislocation</a>&nbsp&nbsp&nbspNext: <a href="loop_en.html">Inserting Dislocation Loop</a></center>
+<br><br>
+</body>
+</html>

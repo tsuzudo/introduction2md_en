@@ -1,0 +1,224 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Shear Deformation</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br>
+<h2>Shear Deformation</h2></center><br>
+
+When information regarding the strength of materials is required, it is common practice to forcibly deform a sample and examine its response by employing experimental apparatus. Such MD simulations would enable to replace experimental research methods. This lecture will introduce you the MD for performing shear deformation, which is a type of deformation used in the experimental analyses.<br><br>
+
+To perform this type of deformation, different lateral forces are applied to two parallel surfaces of a material, such as its upper and lower surfaces. For example, the upper surface of the material is moved laterally with the lower surface fixed, as shown in the figure below,
+<br><br>
+
+<center><figure><img src="shear.jpg" width="500"><br><figcaption>Fig.1: Schematic Picture of Shear Deformation</figcaption></figure></center>
+<br><br>
+
+The procedure for performing the shear deformation MD is briefly mentioned in the following. First, the iron crystal is structurally relaxed at 0 K, then annealed at a finite temperature. Those who have studied this course from the beginning should already be familiar with the methods for carrying out these steps. Subsequently, shear deformation can be achieved by moving <em>Displaced part</em> at a constant speed as indicated by the black arrow in Fig.1 while fixing <em>Fixing part</em>. <br><br>
+
+<h3>Running MD for Shear Deformation</h3>
+The script for running this MD is <em>bccFe_shear.lcm</em> in <em>script</em> directory. This is executed by typing the following command line into standard input.
+
+<pre>
+$work> lmp_serial -v x_lattice 25 -v y_lattice 25 -v z_lattice 25 
+-v max_step 5000 -in script/bccFe_shear.lcm
+</pre>
+
+The <code>-v</code> in the command line above is a flag, just like the previously introduced <code>-in</code>. Using the <code>-v</code> flag allows you to define variables used by LAMMPS before execution. This is convenient when you want to calculate different cases with different parameters using a single script. In this case, the box size is defined as <em>25a</em> (where <em>a</em> is the lattice constant), and the duration of the shear deformation is set to <em>5000fs</em>.<br><br>
+
+Upon successful completion of the abobe LAMMPS execution, numerous files named <em>bccFe_shear_*.out</em> will be generated in <em>work</em> directory, where "*" contains time-related information (namely an integer denoting time step usually starting from <em>0</em>). Loading any one of these files into OVITO will import all files of this format. As before, running the animation will allow you to observe the time development, in this case, the shear deformation. The animation viewed along the <em>xz</em> plane is given below; please compare it with yours.<br><br>
+
+<center>
+<figure><video width="500" controls>
+  <source src="bccFe_shear.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video><br><br><figcaption>Video 1: Time development of the shear deformation MD</figcaption>
+</figure>
+</center>
+<br>
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+
+<h4>Create the Target Crystal</h4>
+
+Let's take a look at the script as we did in previous lectures. The initial block is displayed as follows:
+<pre>
+# variable x_lattice equal 25
+# variable y_lattice equal 25
+# variable z_lattice equal 25
+# variable max_step equal 5000
+</pre>
+The first four lines are comment statements and have no effect on the MD execution. These commented-out <code>variable</code> commands are equivalent to the variable definitions via the <code>-v</code> flag in the command line above. These lines are only for the readability purpose ensuring that these variables are already defined.
+<br><br>
+Here is the next block:
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+lattice bcc 2.83 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region sim_box block 0 ${x_lattice} 0 ${y_lattice} 0 ${z_lattice} units lattice
+create_box 1 sim_box
+create_atoms 1 box
+</pre>
+
+This block is almost identical to the initial part of the script already explained in <a href="relax_en.html">Structural Relaxation</a>. The only difference lies in the use of variables within the <code>region</code> command. <br><br>
+
+In LAMMPS scripts, the notation <code>${a}</code> is used to refer to the variable <em>a</em>. Therefore, this <code>region</code> command was executed with variables such as <em>x_lattice</em> substituted. Strictly speaking, only the string defined by <em>x_lattice</em> was substituted. By using <code>-v</code> flag in this manner, one can alter parameters in each run, enabling flexible operation of a single script.<br><br>
+
+<h4>Removing Top and Bottom Surfaces</h4>
+Here is the next block:
+
+<pre>
+variable boundary_width equal 3
+variable vacuum_high equal ${z_lattice}-${boundary_width}
+region lower_vacuum block INF INF INF INF INF ${boundary_width} units lattice
+region upper_vacuum block INF INF INF INF ${vacuum_high} INF units lattice
+delete_atoms region lower_vacuum
+delete_atoms region upper_vacuum
+</pre>
+
+This block is a little difficult to understand, so please read it carefully. In the <code>boundary</code> command of the previous block, periodic boundary conditions were selected on three sides. This means that the top and bottom surfaces in the diagram above are connected to each other. Therefore, even if shear deformation like that in the diagram above is applied, the movement of the top surface would have dragged the bottom surface along with it. To avoid this unwanted behavior, the top and bottom surfaces need to be separated. To achieve this, we must remove a thin slice from each of the top and bottom surfaces. The above script block is performing that operation, which will be explained below.<br><br>
+
+The first <code>variable</code> command defines the removing width <em>boundary_width</em> as <em>3</em>, where the unit of this parameter is the lattice constant as will become clear later. Consequently, the top and bottom surfaces of the material sample are separated by a distance equal to six times the lattice constant, then they no longer have interaction. The next <code>variable</code> command defines the position of the new top surface after the surface removing.<br><br>
+
+The following two <code>region</code> commands define the upper and lower region to be removed, <em>lower_vacuum</em> and <em>upper_vacuum</em>. As previously studied, <em>block</em> is a keyword denoting the type of area, here representing a rectangular space, with the subsequent six values defining the specific boundary. The keyword <em>INF</em>, as also appeared before, signifying the limit value. Subsequent <code>units lattice</code> specifies the numerical units used in this <code>region</code> command as lattice constants.<br><br>
+		
+The last two <code>delete_atoms region</code> commands remove all atoms within the specified region, allowing the top and bottom surfaces to be finally removed.<br><br>
+
+<h4>Defining Externally-Controlled Regions</h4>
+Here are the next several lines of script:
+
+<pre>
+variable	lower_board equal ${boundary_width}+${boundary_width}
+variable	upper_board equal ${vacuum_high}-${boundary_width}
+region		lower block INF INF INF INF INF ${lower_board} units lattice
+region		upper block INF INF INF INF ${lower_board} INF units lattice
+group		lower region lower
+group		upper region upper
+group		boundary union lower upper
+group		mobile subtract all boundary
+</pre>
+
+This command block defines the grey sections in <b>Fig.1</b>, namely the fixed base plate and the top plate to be forcibly moved.<br><br>
+
+The first two <code>variable</code> commands define the topmost position of the base plate and the lowest position of the top plate.<br><br>
+
+In the next line, the region command defines the regions for the base plate and top plate. This region includes the vacuum portion created earlier, but as there are no atom left there, the portion does not need to be cared.<br><br>
+
+The following two <code>group ... region</code> commands create a group of atoms within the region specified after <em>regions</em> keyword. Here, <em>lower</em> and <em>upper</em> groups are created from <em>lower</em> and <em>upper</em> region, respectively.<br><br>
+
+The following <code>group...union</code> command combines multiple groups specified after <code>union</code> to create a new group. Here, the base plate and top plate groups were combined to create a new group named <em>boundary</em>.
+<br><br>
+
+The next <code>group... subtract</code> command is the inverse of <code>group ...union</code>, performing group subtraction. Here, atoms belonging to <em>boundary</em> group were removed from all atoms within the entire simulation box, and the remaining group of atoms was newly defined as <em>mobile</em>.
+<br><br>
+
+The meaning of <code>region</code> and <code>group</code> are easily confused, but note that <code>region</code> refers to space, while <code>group</code> does to a collection of atoms.<br><br>		
+
+<h4>Defining Atomic Interaction</h4>
+<pre>
+pair_style eam/fs
+pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+neigh_modify every 1 delay 0 check yes
+</pre>
+
+The first two lines define the iron interatomic potential, which was explained in the lecture on <a href="relax_en.html">structural relaxation</a> and will not be repeated here.<br><br>
+		
+The third line is <code>nigh_modify</code> command, but in fact there is a hidden command preceding it, that is, the definition of the neighbour list. In LAMMPS, each interatomic potential carries a cutoff distance at which the interatomic force is ignored for atom pairs beyond that distance. This avoids unnecessary interatomic calculations, improving efficiency. In other words, interatomic potentials are calculated only for atom pairs closer than the cutoff distance.<br><br>
+
+The neighbour list specifies all the pairs for which the interatomic force must be given. However, in practice, since atoms move, we must allow a little margin and also calculate the interatomic force for atom pairs that are slightly beyond the cutoff distance. This margin is called the "skin".<br><br>
+
+The default setting when <code>units metal</code> is described at the beginning of the script is <code>neighbour 2.0 bin</code>. That is, a skin of <em>2.0 Angstroms</em> in thickness is used. The <em>bin</em> described here refers to a type of neighbour list construction algorithm. See the page 13 of <a href="https://www.lammps.org/tutorials/sor13/SoR_01-Overview_of_MD.pdf">Steve Plimpton's presentation slides</a> for the algorithm.<br><br>
+
+Therefore, this command has already been executed in practice. As the thickness of skins increases, so does the memory usage; if memory becomes insufficient during calculations, it may be worth considering thinning the skin within permissible limits.
+<br><br>
+
+Let us return to the explanation of the main subject, <code>neighbour_modify</code> command. Here, <code>every n delay m</code> signifies that the list is updated every <em>n</em> steps, following a delay of <em>m</em> steps after a new neighbour list is built. <code>check yes</code> specifies that the list is only updated when a certain condition is met. This condition is when an atom's displacement reaches the skin. The default is <code>every 1 delay 0 check yes</code>. Therefore, this line is unnecessary in practice. Altering these parameters may potentially reduce computation time. For instance, if atoms are not moving vigorously, the updates could be less frequent. Conversely, if atoms move intensely, the computational cost of checking each time might be wasteful, making <code>check no</code> preferable.<br><br>
+
+
+<h4>Structural Relaxation</h4>
+Here we see the next block:
+		
+<pre>
+fix 1 all box/relax iso 0.0 vmax 0.001
+thermo		200
+thermo_style custom step pe lx ly lz press
+min_style cg
+minimize 1.e-25 1.0e-12 10000 50000
+unfix 1
+</pre>
+
+The <code>fix... box/relax</code> command is for volume relaxation, as we have already learnt.<br><br>
+
+The following <code>thermo</code> command specifies the interval of which system thermodynamical variables are calculated; the variables will be computed every 200 calculation steps, with some results output to standard output.<br><br>
+
+The following <code>thermo_style custom</code> command defines the output format to standard output. In this example, <em>step</em> (simulation step), <em>pe</em> (total potential energy), <em>lx ly lz</em> (box dimensions in three directions), and <em>press</em> (pressure) will be printed.<br><br>
+
+The following <code>min_style</code> command and <code>minimize</code> command appeared in the section on <a href="relax_en.html">structural relaxation</a>, so their explanation is not repeated.<br><br>
+
+The next <code>unfix</code> command has also been learnt. This is the procedure to invalidate <code>fix</code> command once it has fulfilled its purpose. Here, since the structural relaxation calculation has finished, <code>fix ... box/rescale</code> command at the beginning of this block is being invalidated.<br><br>
+
+<h4>Annealing</h4>
+The next block of script is:
+		
+<pre>
+variable set_temp equal 10.
+velocity 	mobile create ${set_temp} 1582775
+fix		1 all nve
+fix		2 boundary setforce 0.0 0.0 0.0
+fix		3 mobile temp/rescale 10 ${set_temp} ${set_temp} 0.1 1.0
+reset_timestep 	0
+run 		1000
+</pre>
+
+This block is dedicated to anneal the atoms belonging to <em>mobile</em> group sandwiched between the bottom and top plates under the set temperature.<br><br>
+
+The <code>variable</code> command defines a variable named <em>set_temp</em> and assigns the value <em>10</em> to it. As you'll see below, this is the annealing temperature.<br><br>
+
+The next <code>velocity ... create</code> command is, as mentioned in <a href="anneal_en.html">the lecture for annealing</a>, the command for setting the temperature. Here, we set the temperature defined by <em>set_temp</em> (i.e. 10 K) for the atoms in <em> mobile</em> group that consists of atoms located between the bottom and top plates.<br><br>
+
+The following <code>fix ... nve</code> command specifies performing time integration for the entire system with fixed total number of atoms, fixed volume, and fixed energy (i.e., with the micronorm canonical ensemble). As you probably understand by now, this only specifies the calculation method; the actual calculation has not yet begun.<br><br>
+
+The following <code>fix ... setforce</code> command is used to forcibly apply atomic forces. Within <em>boundary</em> group, which combines the bottom and top plates, the atomic force is set to zero. As mentioned earlier, the motion of atoms in these regions is not governed by the interatomic potential; instead, they are forcibly fixed or moved. In many MD simulations of material deformation, situations arise where groups of atoms are forcibly fixed or moved. This is where the <code>fix ... setforce</code> command proves useful. Note that the identifier of this <code>fix</code> is <em>2</em>. Multiple <code>fix</code> commands can be executed, distinguished by their identifiers. In other words, two or more <code>fix</code> commands with the same identifier cannot be executed simultaneously.<br><br>
+
+The next <code>fix... temp/rescale</code> command has already been covered in <a href="anneal_en.html">the lecture for annealing</a>, so detailed explanation is omitted. However, it is worth noting that temperature adjustment is set only for <em>mobile</em> group. This is because only <em>mobile</em> group evolves over time at finite temperatures using the interatomic potential.<br><br>
+
+As already explained, the next <code>reset_timestep</code> command initializes the simulation's time step. Actually, it doesn't need to be written because the time step is initially set to <em>0</em>. However, it's useful to keep the script's readability.<br><br>
+
+Now that everything is ready for running the annealing process with <code>run</code> command. Here, to reduce computational load, we set the length to 1000 steps, i.e., <em>1 ps</em>, but ideally, it should be about 100 times longer, i.e., 100 ps. This annealing works only for the atoms within the mobile group. Since <em>upper</em> and <em>lower</em> groups are fixed by the <code>fix ... setforce</code> commands, <em>boundary</em> group atoms are not be mixed with atoms of <em>mobile</em> group.<br><br>
+
+<h4>Shear Deformation</h4>
+Here is the final block of the script:
+
+<pre>
+velocity	upper set 0.1 0. 0.
+reset_timestep 	0
+dump 		1 all custom 200 bccFe_shear_*.out id type xs ys zs
+run		${max_step}
+</pre>
+
+First, <code>velocity ... set</code> command, unlike the previously mentioned <code>velocity .. create</code> command, it assigns a uniform velocity to a specified group. The first argument, <em>upper</em> is the group to which the velocity is applied, which in <b>Fig.1</b> is the group of atoms belonging to the top plate. The three numbers following <code>set</code> represent the velocities in the <em>(x, y, z)</em> directions, respectively. Regarding the velocity units, because <code>units metal</code> is declared at the beginning of the script, the units become Angstrom/ps.<br><br>
+		
+The <code>reset_timestep</code> command has already been explained above. In this case, the time has already advanced to 1000 steps (i.e., 1 ps), so the command set the time back to zero.<br><br>
+
+The following <code>dump...custom</code> command should also be fairly straightforward to understand, based on the previous explanations. The difference here is the addition of the "_*" part to the filename. Previously, the <code>dump...custom</code> command produced a single output file, but this method can sometimes result in a single file becoming excessively large. Using this wild-card approach, as seen above, creates multiple files at 200-step intervals starting from <em>bccFe_shear_0.out</em>, This prevents a single file from becoming too large. These are the files loaded onto OVITO to look at the animation we learned above.<br><br>
+		
+Then, the final <code>run</code> command executes the shear deformation for the duration specified on the command line to standard input above. <br><br>
+
+The workflow of performing structural relaxation and annealing followed by the MD simulations of phenomena of interest is commonly used, so this script will likely serve as a template for various other scripts.<br><br>
+
+While not limited to this script, once you grasp the overall concept of a script, experimenting with different parameters to run various cases will deepen your understanding. <br><br>
+
+<br><br>
+		
+<center>
+<a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="anneal_en.html">Annealing</a>&nbsp&nbsp&nbspNext: <a href="tensile_en.html">Tensile Deformation</a></center>
+<br><br>
+</body>
+</html>

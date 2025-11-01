@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Annealing</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br>
+<h2>Annealing</h2></center><br><br>
+
+
+Here we shall learn a computational method for evolving an iron crystal over time while maintaining it at a finite temperature. You already have learnt how to perform <a href="relax_en.html">structural relaxation</a>, which is the process of minimising the system's energy at <em>0K</em>. Although annealing can occasionally involve structural relaxation at finite temperatures, for convenience we shall refer to the case at 0 K as "structural relaxation" and at a finite temperature as "annealing".
+<br><br>
+
+<h3>Running MD for annealing</h3>
+
+Let us proceed to simulate an annealing process of an iron crystal at 300 K, which is a room temperature. After confirming that the script file <em>bccFe_anneal.lcm</em> exists in <em>script</em> directory, execute LAMMPS as follows:
+
+<pre>
+$work> lmp_serial -in script/bccFe_anneal.lcm
+</pre>
+
+Once the programme ends successfully, a file named <em>bccFe_anneal.out</em> will be created in <em>work</em> directory. Launch OVITO and drag this file onto the OVITO screen to load it into the programme. Subsequently, pressing the play button at the bottom of the OVITO screen will display a video similar to the one below. You notice that the particles' positions are finely fluctuating by watching the video carefully.<br><br>
+
+<center>
+<figure><video width="500" controls>
+  <source src="bccFe_anneal.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+<figcaption>Video 1: Animation of Annealing Process</figcaption>
+</figure>
+</center>
+
+<br>
+As the video demonstrates, annealing itself is not a particularly interesting phenomenon. However, as it serves as the initial state when dealing with more interesting and complex phenomena such as irradiation, deformation and fracture; thus, it is essential to have a solid understanding how this MD is achieved by LAMMPS.<br><br>
+
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+
+<h4>Creating Crystal and Make it Relaxed</h4>
+
+As the previous lecture, let's examine the script from the beginning. As this MD is achieved by adding heat to the crystal relaxed at <em>0K</em>, the first half of the script, as shown below, is similar to the script in the previous lecture.
+
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+lattice bcc 2.83 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region sim_box block 0 25 0 25 0 25 units lattice
+create_box 1 sim_box
+create_atoms 1 box
+pair_style eam/fs
+pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+neigh_modify every 1 delay 0 check yes
+fix 1 all box/relax iso 0.0 vmax 0.001
+min_style cg
+minimize 0.0 1.0e-12 1000 10000
+</pre>
+      
+Having already explained the contents of this script block, we shall proceed without the explanation. Learners who find this difficult to understand would be advised to return to <a href="relax_en.html">the previous lecture</a> and review it.
+<br><br>
+
+<h4>Preparing for annealing calculation</h4>
+We will look at the next block of script:
+
+<pre>
+unfix 1
+variable set_temp equal 300.
+velocity all create ${set_temp} 1582775
+fix 1 all nve
+fix 2 all temp/rescale 10 ${set_temp} ${set_temp} 0.1 1.0
+</pre>
+
+<code>unfix</code> command is used to disable a <code>fix</code> command that has already been executed. In this example, the <code>fix ... box/relax</code> command executed at the above structural relaxation process remains active. As it is no longer required in the subsequent annealing process, it is disabled here. The argument <em>1</em> for <code>unfix</code> is the identifier of the fix command to be disabled. This is a typical usage of the identifier of <code>dump</code>.<br><br>
+
+<code>variable</code> command is used to define a variable. Here, we declare a variable named <em>set_temp</em> to be used as the annealing temperature later on, and set it to <em>300</em>.
+<br><br>
+        
+<code>velocity</code> command is used for adding some velocity to atoms in various ways. The temperature of a solid is determined by how vigorously each atom vibrates. As mentioned in the previous lecture, a system relaxed structurally by <code>minimise</code> command is at 0 K. That is, the atoms are not vibrating at all and are stationary. To perform annealing MDs on a structurally relaxed system, the temperature must be raised. This <code>velocity...create</code> command sets the velocity of atoms belonging to the group specified by <em>all</em> (i.e., all atoms) to a value equivalent to a temperature of 300 K. The final seven-digit integer at this command is the random number seed. Changing this integer allows conducts of different cases at the same temperature, for example, enabling the verification of result reproducibility.<br><br>
+        
+The <code>fix ... nve</code> command specifies the time integration method for MD simulations. Here, <code>nve</code> denotes time integration with fixed atomic number, volume, and energy (i.e., with the microcanonical ensemble). Other option can be <code>npt</code>, which applies variable volume under constant pressure; The option depends on how you want to have your MD.
+<br><br>
+
+The following <code>fix ... temp/rescale</code> command allows the system temperature to be forcibly adjusted to a specified setpoint at regular intervals during MD progression. This prevents the system temperature from deviating from the set value during time evolution. The <code>fix</code> identifier is <em>2</em> because <em>1</em> is already in use. Grammatically, there is no requirement to use the identifier sequentially from <em>1</em>, but using them sequentially from <em>1</em> makes the script more readable. The subsequent word <em>10</em> indicates that the forced temperature adjustment will occur every 10 time steps in the MD calculation. The next two arguments set the temperatures at the start and end of the simulation. Since a constant temperature is maintained while annealing, both are set to <em>${set_temp}</em>, i.e. <em>300</em>. When the system is gradually heated or cooled, different values will be assigned to these two arguments. <br><br>
+
+The next argument is a value called "window", which specifies how far the temperature must deviate from the setpoint before forced temperature adjustment occurs. In this example, temperature adjustment will occur when the deviation reaches 0.1 deg. The final argument is the proportion of atoms that undergo temperature adjustment. Here, it is set to <em>1.0</em>, meaning all atoms will be adjusted if necessary. For more detailed information on the command, please refer to the <a href="https://docs.lammps.org/fix_temp_rescale.html">manual</a>.<br><br>
+
+<h4>Performing Annealing MD</h4>
+Here are the remaining commands:
+<pre>
+reset_timestep 0
+dump    1 all custom 50 bccFe_anneal.out id type xs ys zs
+thermo  200
+run     1000
+</pre>        
+
+The <code>reset_timestep</code> command sets the time before running the MD simulation; here, the time is set to zero. Strictly speaking, this command is not necessary as the time is initially set to zero, but this is a good opportunity to introduce this command.<br><br>
+
+As mentioned in the previous lecture, you should consider the next command as <code>dump ... custom</code> command, which is used to output the state of each atom at regular intervals. The first argument is the identifier for the dump command, here selected as <em>1</em>. The subsequent <em>all</em> is a group name representing the entire system, here requesting output for all atoms present in the system. <br><br>
+
+The subsequent <em>50</em> denotes the output frequency, meaning the output occurs every 50 time steps. Unless specified otherwise, one time step is 1 fs, so the information regarding atomic positions and other details will be written to a file every 50 fs. The next argument is the output filename, specified here as <em>bccFe_anneal.out</em>. The remainder specifies the state variables for each atom to be written to the file. To explain: <code>id</code> is the sequential number assigned to each individual atom; <code>type</code> denotes the atomic species, which in this example is <em>Fe</em> only, hence <em>1</em> for all atoms. <em>xs</em>, <em>ys</em>, and <em>zs</em> represent the atoms' <em>x</em>, <em>y</em>, and <em>z</em> relative coordinate positions, normalised within the simulation box, falling between 0.0 and 1.0. <br><br>
+
+Thus, the file is formatted as:
+<pre>
+ITEM: ATOMS id type xs ys zs
+1 1 0.0 0.0 0.0
+2 1 0.0 0.0 0.1
+...
+...
+</pre>
+In the actual dumped file, information regarding the box dimensions is placed at the beginning, which is not shown above. As previously mentioned, once the simulation has finished, loading <em>bccFe_anneal.out</em> into OVITO will allow you to view the animation. If you are simply analysing the MD results in OVITO, there is no need to know the format of this file in detail. For details on the <code>dump ... custom</code> command, please refer to the <a href="https://docs.lammps.org/dump.html">manual</a>.<br><br>
+
+During the MD development, the system's thermodynamic variables are not necessarily calculated at every single simulation step. The <code>thermo</code> command specifies the frequency at which these thermodynamic variables are calculated. Here, thermodynamic variables will be calculated once every 200 time steps. Furthermore, the calculation state will be output to standard output at the same frequency.<br><br>
+
+Finally, the MD can be run using the <code>run</code> command. Its first argument is the total number of time evolution steps. As mentioned above, the computational time step is 1 fs unless otherwise specified. Therefore, in this case, the simulation will continue until 1 ps. Note that the computational time step can be altered via a separate command; increasing the time step width may improve computational efficiency but may reduces accuracy. Unless high-energy atoms appear such as under irradiation conditions, it is not necessary to change the default value.<br><br>
+
+This is the end of explanation of the script, which is the first example of MD time evolution in this course. <br><br><br>
+
+<center>
+<a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="relax_en.html">Structural Relaxation</a>&nbsp&nbsp&nbspNext: <a href="shear_en.html">Shear Deformation</a></center>
+<br><br><br>
+</body>
+</html>

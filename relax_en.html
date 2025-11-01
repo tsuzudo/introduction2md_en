@@ -1,0 +1,177 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Relaxing Cristalline Structure</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<center><img src="logo_new.png" alt="logo" width="600"><br><br>
+<h2>Structural Relaxation</h2></center><br>
+
+
+At the first case study in this course, you'll try to calculate the cohesive energy of iron (Fe) atom in the form of body-centered-cubic (BCC) crystal. To do this in LAMMPS, it is necessary to create a physical region where the simulation is executed. This region is called "a simulation box" or more simply "a box". Then, you need to insert a group of atoms in the form of BCC crystal into the box, and then to structurally relax the whole crystal using an appropriate inter-atomic potential. The whole system is fully relaxed in energy and ready to calculate the cohesive energy that is the total energy divided by the number of atoms. <br><br>
+
+To make it happen, you has to describe the above procedure as a series of command lines called an input script with following a specific grammer we'll study in this course. On starting LAMMPS, it execute the input script from the beginning in order, then the requested procedure will happen in order.
+<br><br>
+
+<h3>Execution of Script</h3>
+
+In the previous lecture, I hope you made <em>script</em> directory under <em>work</em> directory. If not, please go back to the previous lecture and follow the instruction before moving ahead. <br><br>
+
+In the <em>script</em> directory is the collection of LAMMPS input scripts we'll use in this course. You'll find the file called <em>bccFe_relax.lcm</em> among them, that is the input script used in this lecture. To execute LAMMPS using this input script, you need to start a standard input/output application in your own operating system and to change the current directory to <em>work</em> directory you made, and then type the following there:
+<pre>
+  $work> lmp_serial -in script/bccFe_relax.lcm
+</pre>
+
+In the above, <code>lmp_serial</code> is the serial processing version of LAMMPS executable, i.e., it occupies only single core for the execution. The following word <code>-in</code> is a command-line flag to give the filename of the input script. There is no specific file extension to indicate the input script, so in principle you may use any format of filename. Actually, the LAMMPS developpers liked the filename format of <em>in.*</em> ("*" is a wild card), which is often inconvenient. As you see above, we choose the format of <em>*.lcm</em>, which is applied throughout the course.<br><br>
+  
+As you'll see later, the script describes what the inter-atomic potential data is applied here. Thus, we typically need three files to conduct a LAMMPS calculation, a LAMMPS executable, an input script, and a file for the inter-atomic potential data.<br><br>
+    
+Upon finishing the run, you'll see the output such as follows:
+    
+<pre>
+  Minimization stats:
+    Stopping criterion = linesearch alpha is zero
+    Energy initial, next-to-last, final =
+          -128682.636737     -128826.096944     -128826.096944
+    Force two-norm initial, final = 32116.9 0.0014228
+    Force max component initial, final = 32116.9 0.0014228
+    Final line search alpha, max atom move = 0.00549093 7.8125e-06
+    Iterations, force evaluations = 11 23
+  ...
+  ...
+
+  **** Cohesive energy : 4.12243510220317. *****
+  Total wall time: 0:00:03
+</pre>
+
+The output shows <em>Minimization stats</em> that tells how the structural relaxation went. In this case, the iterative calculation ended because it could not decrease the system energy any more. Although more detailed information on the minimization is following, it is enough, at this stage, to understand the requested structural relaxation was successful.<br><br>
+
+At the end of the output, the cohesive energy "4.12...eV" is given. "Total wall time" is the total calculation time, which varies with your computing environment. <br><br>
+
+If you didn't obtain the output as given above, you must make sure that the <em>script</em> and the <em>potential</em> directories may not be under your <em>work</em> directory.<br><br>
+
+Because the case study given above led the crystal sample to the fully relaxed state by optimizing the total energy, it does not involve temppral development. Strictly speaking, such types of calculations are called molecular statics instead of molecular dynamics. The input script used in this case study includes many important aspects for beginners to proceed to coming lectures.<br><br>
+    
+<h3>Step-by-Step Analysis of Input Script</h3>
+
+<h4>Initialization</h4>
+From now on, we'll study the input script used above, that is <em>bccFe_relax.lcm</em> in the script directory. The first four lines are shown below:<br><br>
+
+<pre>
+  # Relaxing iron crystal
+  units metal
+  boundary p p p
+  atom_style atomic
+</pre>
+
+Any lines starting by "#" are recognized as comments, thus the first line does not influence the calculation results.<br><br>
+
+At the next line, <code>unit</code> command is used to determine a set of units applied in this simulation. In case of MDs for metals, this <code>metal</code> set is recommended as described here. The units of energy, distance, time and pressure are <em>eV</em>, <em>Angstrom</em> and <em>picosecond (ps)</em> and <em>bar</em>, respectively.<br><br>
+
+The nextline sets the boundary condition used. The parameter of this command is <code>p p p</code>; This means that the periodic boundary condition is applied for all the three, i.e., <em>x</em>, <em>y</em>, and <em>z</em> directions.<br><br> 
+
+The next command <code>atom_style</code> chooses a set of state variables given to each atomic model, such as its location, its velocity, etc. If case of MDs for metals, you probably want to choose <code>atomic</code> as opted here.<br><br>
+    
+<h4>Create a crystal</h4>
+Here are the next few lines:
+
+<pre>
+  lattice bcc 2.83 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+  region sim_box block 0 25 0 25 0 25 units lattice
+  create_box 1 sim_box
+  create_atoms 1 box
+</pre>
+
+The <code>lattice</code> command is used to define a crystal system. Here, it defines a body-centred cubic (BCC) crystal system with lattice constant of 2.83 Angstrom, placing the three directions of mirror indices <em>[100], [010]</em>, and <em>[001]</em> along the <em>x</em>, <em>y</em>, and <em>z</em> directions, respectively, in a simple Cartesian coordinate system. Note that this command merely defines the crystal system used here, but it does not yet defined the atoms to be used in the calculation.<br><br>
+
+The <code>region</code> command defines a physical space LAMMPS uses for the MD. Here, it defines a region named <em>sim_box</em> (the name can be anything). <code>block</code> is a keyword specifying details for this command, indicating that the region is a rectangular prism defined by the six boundaries <em>x_min</em>, <em>x_max</em>, <em>y_min</em>, <em>y_max</em>, <em>z_min</em>, and <em>z_max</em>. <code>units</code> is also a keyword for this command, specifying the unit for values assigned to <em>x_min</em> etc. In this case, <code>lattice</code> is used, selecting the lattice constant as the unit. Thus, the region defined here is a cube with a side length of <em>25a</em> (where <em>a</em> is the lattice constant).<br><br>
+
+The <code>create_box</code> command defines the region named <em>sim_box</em>, defined above, as the computational space. The first argument <em>1</em> of this command represents the number of atomic species. Here, since only iron atoms are handled, it is <em>1</em>.<br><br>
+
+The <code>create_atoms</code> command places atoms into the box defined above. As with the previous command, the first argument <em>1</em> represents the number of atomic species. When the second argument <code>box</code> is selected, atoms are arranged throughout the entire computational space already defined by <code>create_box</code> to form the crystal structure defined by the <code>lattice</code> command. Notice that <code>lattice</code> command and <code>create_box</code> command must be executed prior to this command.<br><br>
+
+So far, a group of atoms with a BCC structure within a computational space of a cubic lattice with side length <em>25a</em> is defined. As explained above, periodic boundary conditions are imposed on this space. This completes the initial state for the start of the calculation.<br><br>
+
+<h4>Defining the interatomic potential</h4>
+Here are the next two lines:
+
+<pre>
+  pair_style eam/fs
+  pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+</pre>
+
+The <code>pair_style</code> command selects the type of interatomic potential. In MD, an initial state evolves over time by means of interatomic interactions. These interatomic interactions are defined by an interatomic potential. In this example, the argument is <code>eam/fs</code>, selecting a Finnis-Sinclare (FS) type potential from the Embedded Atom Method (EAM) potential group.  <code>eam/fs</code> is commonly used for metals. Details of interatomic potentials will not be covered in this course and see <a href="https://docs.lammps.org/pair_eam.html">the LAMMPS manual</a> for more detail.<br><br>
+
+The next <code>pair_coeff</code> command selects the file for the interatomic potential. This file is a numerical table and must have a proper format of the interatomic potential type defined by the <code>pair_style</code> command. The first two arguments define the combinations of atomic species to which the potential applies. Here, the two asterisks indicate that they apply to all combinations. Typically, these arguments do not need to be changed. The third argument specifies the location of the file, and the fourth defines the atomic species. Here, the atomic species is defined as Fe (i.e., iron).<br><br>
+    
+
+<h4>Other Preparation for Structural Relaxation</h4><pre>
+  dump 1 all custom 100 bccFe_relax.out id type xs ys zs
+  neigh_modify every 1 check yes
+  fix 1 all box/relax iso 0.0 vmax 0.001
+</pre>
+
+<code>dump</code> command is commonly recognised as a command paired with the fourth word (i.e. the third argument). That is, it should be considered as the <code>dump ... custom</code> command. This is used to output the state of each atom in a customised format during MD progression. Note that the <code>dump ... custom</code> command merely defines how the data is output; the actual output occurs after the calculation of atomic motion begins from the initial state. <br><br>
+
+The first argument <em>1</em> is the identifier for the <code>dump ... custom</code> command. This will become important when multiple <code>dump</code> commands exist. The next argument <code>all</code> is a group identifier, meaning all atoms within the whole simulation box. Groups are often defined by <code>group</code> command, but <code>all</code> group always exists without its definition in the script. <code>custom</code> indicates that the output format can be customised using the multiple arguments that follow. Here, it specifies output every <em>100</em> computational cycles to the file <em>bccFe_relax.out</em>. The output content is the <em>x, y</em>, and <em>z</em> coordinates of all atoms, listed as <code>xs ys zs</code>. These coordinates are to be output as values normalised to the size of the computational space (i.e., values between nil and unity).<br><br>
+
+Note that the output files are primarily used for visualising computational results on a computer rather than for human reading. Here, the file <em>bccFe_relax.out</em> can be visualised by loading it into programmes such as <a href="http://www.ovito.org">OVITO</a>. We shall learn visualisation gradually in later lectures.<br><br>
+
+As briefly mentioned above, <code>dump ... custom</code> command can be used more than once, allowing atomic data of different formats or contents to be output to separate files. Also <code>dump ... custom</code> command is highly versatile, so there is no need to understand everything at once. <br><br>
+    
+<code>neigh_modify</code> command configures updates to the list of atomic pairs (the Neighbour list) to which the interatomic potential is applied. This command is a little tricky for beginners, so please don't worry about it for now and we shall move on. It will be explained in a coming lecture.<br><br>
+
+<code>fix</code> command specifies various options for MD being combined with the third argument. Here, it should be understood as <code>fix ... box/relax</code> command, where the volume relaxation of the system is requested during the energy minimisation process of the structural relaxation calculation explained below.<br><br>
+
+The first argument <em>1</em> is the identifier for the <code>fix</code> command, serving the same purpose as the identifier for the preceding <code>dump</code> command.<br><br>
+
+The subsequent <code>all</code> denotes a group comprising all atoms, specifying the scope to which this <code>fix ... box/relax</code> command is applied, analogous to the <code>all</code> appearing in the dump command above. In this case, the command is applied to all atoms.<br><br>
+
+The <code>iso</code> signifies performing isotropic volume relaxation, while the following <em>0.0</em> indicates relaxing to achieve a pressure of 0.0 bar; The unit for the pressure is already selected at the <code>units</code> command of the first block of the script.<br><br>
+
+The <code>vmax</code> is a keyword specifying the maximum volume change permitted in a single volume relaxation calculation step; here, the volume change allowed at any one time is up to <em>0.001</em>. Usually, setting <code>vmax</code> to <em>0.001</em> is sufficient.<br><br>
+
+Much like <code>dump</code> command, <code>fix</code> command is highly versatile. We shall gradually become familiar with it through this course.<br><br>
+
+<h4>Execution of Structural Relaxation</h4>
+
+<pre>
+  min_style cg
+  minimize 0.0 1.0e-12 1000 10000
+</pre>
+
+<code>min_style</code> command specifies the algorithm for minimising energy in relaxation calculations. Here, <code>cg</code>, namely the conjugate gradient method, is selected.<br><br>
+    
+With preparations complete, we can finally proceed to perform the structural relaxation calculation. This is accomplished using the minimize command.<br><br>
+
+The first argument specifies the convergence criterion based on energy. The convergence is achieved when the relative change in energy (as a proportion of the total energy) is smaller than this value. In this example, the value is set to <em>0.0</em>.<br><br>
+
+The second argument is the convergence criterion based on force. The convergence is achieved when all force components in the <em>x</em>, <em>y</em>, and <em>z</em> directions for any atom fall below the set value. Here, the force units are those defined by the <code>units</code> command above. In this example, <em>1.0e-12</em> eV/A is selected as the set value.<br><br>
+
+The third argument is the maximum number of iterations, that is, the calculation will not proceed beyond this value. The fourth argument is the maximum number of force evaluations. Typically, the number of force evaluations will be greater than the number of iterations. Note that if the calculation terminates due to either the third or fourth argument, the system has not met the convergence conditions yet.<br><br>
+
+<h4>Printing Results</h4>
+<pre>
+  variable e_coh equal (-1)*pe/count(all)
+  print "**** Cohesive enegy : ${e_coh}. *****"
+</pre>
+    
+The <code>variable</code> command may be considered as a command for defining variables used in the script. Here, the variable <code>e_coh</code> is defined as the total potential energy <code>pe</code> divided by the total number of atoms. <code>pe</code> is a variable that always exists even if not explicitly defined.<br><br>
+
+Furthermore, <code>count()</code> is a function that returns the number of atoms, and <code>all</code>, as previously explained, is a group identifier representing all atoms in the entire system. Thus, <code>count(all)</code> yields the total number of atoms in the system. Consequently, this statement defines the variable <code>e_coh</code> as the cohesive energy.<br><br>
+
+<code>print</code> command outputs the portion enclosed by two double quotations to standard output. Note that <code>${e_coh}</code> refers to the variable <code>e_coh</code> defined above. It is important to note that in LAMMPS scripts, when referencing a variable <em>a</em>, it must be written as <code>${a}</code> rather than simply <em>a</em>.<br><br>
+    
+This concludes the explanation of the script. I would recommend to revisit the whole script before moving ahead.
+<br><br><br>
+
+<center>
+<a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="overview.html">Overview</a>&nbsp&nbsp&nbspNext: <a href="anneal_en.html">Annealing</a></center>
+    <br><br><br>
+
+</body>
+</html>

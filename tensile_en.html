@@ -1,0 +1,190 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Tensile Deformation</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br><h2>Tensile Deformation</h2></center><br>
+
+<h3>Overview</h3>
+In the previous lecture, we learned about MD for modeling shear deformation in materials. In materials science, tensile deformation, referring to deforming the material by stretching it, is equally important to shear deformation.<br><br>
+
+In experimental materials science research, tensile deformation is a frequently used method for analyzing a material's ductility (ease of elongation) and <b>fracture</b> strength. Fracture is a common phenomenon in real life, occurring in social infrastructure such as bridges and roads due to the effects of aging, earthquakes and other factors.<br><br>
+
+While fracture is observed as a macroscopic phenomenon visible to the naked eye, its physical essence is ascribed to the dissociation of interatomic bonds. Direct experimental observation of this phenomenon's fundamental nature remains beyond current scientific capabilities. Consequently, numerous fundamental questions about fracture remain unanswered: Why did something that had never broken before suddenly break at a specific moment?; Why did fracture occur at that specific location rather than elsewhere? Therefore, research into the mechanisms of fracture is a field where the application of MD to model atomic-level behavior is strongly desired.<br><br>
+
+<h3>Running MD for Tensile Deformation</h3>
+
+When performing MD simulations of tensile deformation, it is typical to introduce notches or other initiation points for fracture beforehand. However, as we are focusing solely on the method of performing this deformation via MD, as in the previous case, we will study a simple example of deforming a perfect crystalline iron sample.<br><br>
+		
+The script for this MD is <em>bccFe_tensile.lcm</em> in <em>script</em> directory. You can execute it using the following command.
+<pre>
+$work> lmp_serial -in script/bccFe_tensile.lcm
+</pre>
+
+This will output numerous files in the format <em>bccFe_tensile_*.out</em>. When you load one of these files, for example, the first file <em>bccFe_tensile_0.out</em>, into OVITO, it will automatically load all the other files in the same format. Click the play button at the bottom of the OVITO screen to run the animation. If you can observe the material stretching vertically as shown in the video below, the execution should be successful.<br><br>
+
+<center>
+<figure><video width="500" controls>
+  <source src="bccFe_tensile.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video><br><br><figcaption>Video 1: Animation of Tensile Deformation</figcaption><figure>
+</center>
+
+<br><br>
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+<h4>Create the Target Crystal</h4>
+Here is the first block of the script:
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+variable 	lc equal 2.83
+lattice bcc ${lc} orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+variable 	x_box equal 30*${lc}
+variable 	y_box equal 30*${lc}
+variable 	z_box equal 50*${lc}
+region box block 0 ${x_box} 0 ${y_box} 0 ${z_box} units box
+create_box 1 box
+create_atoms 1 box
+</pre>
+We've studied <code>units</code>, <code>boundary</code>, and <code>atom_style</code> commands. Audience who is unfamiliar with these should return to the lecture on <a href="relax_en.html">Structure Relaxation</a> to review them.<br><br>
+
+The following <code>variable</code> command defines a variable named <em>lc</em>. As we'll see later, this is the lattice constant for the iron crystal.<br><br>
+
+The following <code>lattice</code> command is the command for defining the lattice system. We encountered this command in a few previous lectures<br><br>
+
+The following three <code>variable</code> commands define the variables <em>x_box</em>, <em>y_box</em>, and <em>z_box</em> as 30 times the lattice constant.<br><br>
+
+The following <code>region</code> command has been mentioned before, and we define a rectangular region named <em>box</em>. Note that the last argument is <code>units box</code>. Previously, <code>units lattice</code> was selected instead, in which case the length unit was the lattice constant. When <code>units box</code> is specified, the length unit used by this command becomes Angstrom.<br><br>
+
+When defining the simulation box, it is possible to use either the lattice constant as in previous lectures or Angstrom as in this lecture. There is no fundamental difference between the two methods. Generally, as scripts become more complex, using Angstrom tends to be easier to develop the script.<br><br>
+
+The subsequent two commands have already appeared in previous lectures. The <code>create_box</code> command creates a simulation box from the region called <em>box</em> created above, and the <code>create_atoms</code> command places <em>type-1</em> atoms within that box to form the crystal structure specified by the <code>lattice</code> command above.<br><br>
+
+<h4>Defining Atomic Interaction</h4>
+The next block of script is as follows:
+		
+<pre>
+pair_style eam/fs
+pair_coeff * * potentials/Fe_mm.eam.fs Fe
+neigh_modify every 1 delay 0 check yes
+</pre>	
+
+Here, we define the interatomic potential and updating the list of the neighbor list used to calculate interatomic forces. As we've already saw this block in previous lectures, we'll move on without detailed explanation.<br><br>
+
+<h4>Structural Relaxation</h4>
+
+The next block is :		
+<pre>
+variable 	dump_step equal 200
+thermo ${dump_step}
+thermo_style custom step pe lx ly lz press
+min_style cg
+min_modify dmax 0.05
+minimize 1.0e-25. 1.0e-12 10000 50000 
+</pre>	
+		
+In this block, we are performing structural relaxation, as mentioned several times before. First, we defined a variable named <em>dump_step</em> using <code>variable</code> command. The <code>thermo</code> command specifies the frequency at which thermodynamic variables are calculated and output during the MD simulation. The subsequent <code>thermo_style</code> command specifies which variables to output to standard output. Here, these are the time step, total potential energy, the box size in the <em>x</em>, <em>y</em>, and <em>z</em> directions, and pressure.<br><br>
+		
+The following <code>min_style</code> command specifies the structure relaxation algorithm; here, the conjugate gradient method is used.<br><br>
+
+The <code>min_modify dmax</code> command specifies the upper limit for the speed of structural relaxation. Here, it is assumed that each atomic position will not change by more than <em>0.05</em> Angstroms per iteration. If structural relaxation is not proceeding well, this value should be smaller; if its convergence is too slow, a larger value may be used. Since the default value is <em>0.1</em> Angstrom, this command should only be used when you want to specify a different value as in this script.<br><br>
+
+The <code>minimize</code> command at the bottom executes structural relaxation. The four arguments were explained in <a href="relax_en.html">the lecture for Structural Relaxation</a>, so refer to the previous lecture if necessary.<br><br>
+
+
+<h4>Variable used for tensile deformation</h4>
+The previous block gives us the initial state for performing the tensile deformation. Now define the necessary variables for the deformation procedure.
+<pre>
+variable 	lx_current equal lx
+variable 	ly_current equal ly
+variable 	lz_current equal lz
+variable 	lx0 equal ${lx_current}
+variable 	ly0 equal ${ly_current}
+variable 	lz0 equal ${lz_current}
+variable 	dstrain equal 0.001
+variable	poisson_ratio equal 0.27
+variable 	lz_delta equal ${dstrain}*${lz0}/2
+variable 	lx_delta equal ${lz_delta}*${poisson_ratio}
+variable 	ly_delta equal ${lz_delta}*${poisson_ratio}
+</pre>
+
+<em>lx_current</em>, <em>ly_current</em>, and <em>lz_current</em> represent the box size, i.e., the material dimensions. <em>lx0</em>, <em>ly0</em>, and <em>lz0</em> are defined as the same values. As will be explained later, <em>lx_current</em> and the others denote the current values during tensile deformation, while <em>lx0</em> and the others represent the constant values, i.e., the dimensions measured immediately after structural relaxation.<br><br>
+		
+In this example, we do not use methods used in the previous lecture for <a href="shear_en.html">shear deformation</a>, where we applied a forced velocity to a portion of the sample after annealing it. Here, we adopt a method where the material is deformed at infinite speed (i.e. jumping to the next shape) in tiny increments at <em>0 K</em>, and allowing structural relaxation after the tiny deformation. The process is repeated till the final deformation reaches the requested value.<br><br>
+
+The variable <em>dstrain</em> defined in the next line represents the strain rate per step, meaning it will pull and deform the initial z-direction length <em>lz0</em> by 0.1% at a time.<br><br>
+		
+
+The following <em>poisson_ratio</em> is the Poisson's ratio of the material. When an iron crystal is stretched in the z-direction, it contracts in the transverse direction; the Poisson's ratio indicates this ratio, and the value in the literature is given here.<br><br>
+		
+The incremental deformation is achieved by moving the box's boundaries in three directions by a small amount. <em>lz_delta</em>, <em>lx_delta</em>, and <em>ly_delta</em> represent the amount moved per increment. The z-direction value is divided by 2 because both the top and bottom boundaries are moved, resulting in the vertical length increasing by <em>lz_delta * 2</em> per increment. Additionally, the Poisson ratio is used in the definitions of <em>lx_delta</em> and <em>ly_delta</em>.<br><br>
+		
+
+<h4>Running Tensile Deformation</h4>
+
+Here we show the rest of the script:
+		
+<pre>
+reset_timestep 0
+dump 1 all custom ${dump_step} bccFe_tensile_*.out id type xs ys zs
+variable final_strain equal 0.04
+variable nloop equal ${final_strain}/${dstrain}
+variable loop loop ${nloop}
+label loop_start
+	print " "
+	print " "
+	print "%%%%% LOOP INCREMENT ${loop} %%%%"
+	change_box all x delta ${lx_delta} -${lx_delta} y delta ${ly_delta} -${ly_delta} &
+	z delta -${lz_delta} ${lz_delta} remap units box
+	minimize 1.0e-25 1.0e-25 1000 10000
+	run 0
+	next loop
+jump SELF loop_start
+</pre>
+<code>reset_timestep</code> command at the top, which has appeared several times before, initializes the time.<br><br>
+
+<code>dump ... custom</code> command has appeared several times so far; it is a command for outputting the intermediate states of each atom to a file.<br><br>
+
+The variable <em>final_strain</em> defines the final elongation achieved by the whole tensile simulation. Here, we set the final elongation to 4%.<br><br>
+
+The variable <em>nloop</em> represents the total number of the tiny deformation.<br><br>
+
+The following <code>variable ... loop</code> command is new. It defines a variable incremented during iterative calculations using the syntax <code>variable ??? loop $$$</code>. Here, <code>???</code> is the variable name, whose initial value is set to 1. <code>$$$</code> represents the final value of the loop variable during the iteration process. <br><br>
+
+The <code>label</code> command specifies the destination of the jump command at the bottom. The explanation given below will clarify how this <code>label</code> command works in iterative calculations, so let's proceed.<br><br>
+
+The indented section that follows is the repeating part. The first three <code>print</code> commands display the intermediate results of this iterative calculation to standard output.<br><br>
+
+The following two lines are connected by "&" and form a single sentence. The <code>change_box</code> command forcibly moves the box boundaries. When the keywords <code>x delta</code>, <code>y delta</code>, and <code>z delta</code> are specified, they define the movement distances for the box's lower and upper boundaries, respectively. Here, we see that in the <em>x</em> and <em>y</em> directions, the lower boundary increases and the upper boundary decreases, causing compression, while in the <em>z</em> direction, the opposite occurs, causing extension. The <code>remap</code> keyword in this command requires atomic positions to be changed proportionally to the degree of deformation. The subsequent <code>units box</code> indicates that the length unit used in this command is Angstrom. This is the implementation of the tiny tensile deformation mentioned above.<br><br>
+
+<code>minimize</code> is a command that relaxes the structure after applying the deformation.<br><br>
+
+The next <code>run 0</code>" is a bit tricky way to use <code>run</code>. So far the <code>run</code> commands were used to perform dynamic calculations for a finite number of steps, but the argument is 0, which seems odd. In this case, the <code>run</code> command is used to calculate the thermodynamic variables of the system without advancing time<br><br>
+
+By <code>next loop</code> command, the variable <em>loop</em> is incremented.<br><br>
+
+<code>jump</code> command at the bottom is used to jump to a specific location of a script. If <em>SELF</em> is specified as the first argument, the jump occurs within the same script. If another script is specified as the first argument, it moves to that script. The second argument specifies the destination label of the jump. In this example, it returns to the beginning of this iterative calculation loop. However, if the previous next command caused "loop" to exceed its bounds (here, <em>nloop</em>), this statement is ignored and the iterative calculation terminates. In this case, since it is the end of the entire script, LAMMPS execution ends.<br><br>
+		
+<h3>Note for deformation method in MDs</h3>
+
+In the previous lecture, we introduced the script that <a href="shear_en.html">performs shear deformation</a>. That method involved forcibly applying velocity to a portion of the material to induce deformation. It is also possible to apply that method to the tensile deformation.<br><br>
+
+The method of applying velocity inevitably leads to the technical problem that the deformation rate becomes unrealistically fast compared to the deformation applied in experiments. Deformation time in experiments typically lasts at least seconds. However, the time that can be tracked in MD is at most on the order of nanoseconds. One solution is to repeatedly perform the procedure of applying a tiny deformation at 0 K and allowing it to relax, as done in this study. In this case, since the structure is allowed to relax after each deformation, it avoids criticism that the deformation rate is too fast and unrealistic.
+<br><br>
+
+However, those methods cannot be used at finite temperatures, so they cannot be applied in cases where lattice vibrations largely affect material behavior. In reality, materials become more prone to plastic deformation as temperature increases, and fracture is suppressed. Therefore, MD simulations that deform extremely slowly at finite temperatures would be ideal, but even the latest supercomputers have limitations in achieving this. In other words, whichever method is chosen, there are pros and cons.<br><br>
+
+Finite-temperature deformation MD may reflect some reality, but blindly believing the MD results can lead to incorrect conclusion. Thus you need careful analyses such as comparison with experiments.<br><br><br><br>
+<center>
+<a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="shear_en.html">Shear Deformation</a>&nbsp&nbsp&nbspNext: <a href="cascade_en.html">Radiation Damage</a></center>
+<br><br>
+</body>
+</html>

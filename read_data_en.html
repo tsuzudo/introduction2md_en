@@ -1,0 +1,110 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Importing Initial State</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br><h2>Importing Initial State</h2></center><br>
+
+<h3>Why is "Importing" necessary?</h4>
+So far, we've studied several examples of MD simulations. Recall that in those examples, we first created initial conditions before starting MD calculations. Such initial states were created in each LAMMPS script execution using commands like <code>create_atoms</code>. However, there is another method. This lecture introduces that alternative approach.<br><br>
+
+The grammer of LAMMPS scripts are not necessarily as user-friendly as general programming languages. Therefore, you may sometimes find it difficult to create the initial conditions you desire. When such problems arise, you can resolve them by preparing your initial condition as an external file using your preferred programming language beforehand and then loading them during the script execution.<br><br>
+
+In case repeatedly performing MD simulations under different conditions using the same initial conditions, it is inefficient to have LAMMPS generate the same initial conditions again and again. Therefore, loading pre-generated initial conditions saves computational resources.<br><br>
+        
+<h3>Example of the External File</h3>
+
+To have LAMMPS read a atomic state from an external file, that file must be prepared in a special format. As an example, I created a text file named <em>file.in</em> in <em>script</em> folder as shown below:
+        
+<pre>
+# bcc Fe lattice points  
+
+31250 atoms
+1 atom types
+
+0.000000 71.382500 xlo xhi
+0.000000 71.382500 ylo yhi
+0.000000 71.382500 zlo zhi
+
+Atoms
+
+    1     1       0.000000000000       0.000000000000       0.000000000000
+    2     1       1.427650000000       1.427650000000       1.427650000000
+    3     1       0.000000000000       0.000000000000       2.855300000000
+    4     1       1.427650000000       1.427650000000       4.282950000000
+    5     1       0.000000000000       0.000000000000       5.710600000000
+    ...........
+</pre>
+
+As done in previous lectures, we'll examine the above content step by step. First, lines starting with # or empty lines are ignored, just like in the LAMMPS scripts. Therefore, in this example, meaningful content effectively begins on the third line.<br><br>
+
+First, the total number of atoms is given. Here, it creates an initial state consisting of 31,250 atoms.<br><br>
+
+Next is the number of atomic species, which is set to <em>1</em> here. Note that this number must not conflict with descriptions of the other part of the script, such as the interatomic potential being used.<br><br>
+
+The following three lines define the simulation box. The MD simulation will be performed inside a cube measuring 71.3825 Angstroms.<br><br>
+
+<code>Atoms</code> in the next non-empty line indicates that atomic data begins on the subsequent lines.<br><br>
+
+Each atomic data line consists of an atomic serial number (in this case, numbers from <em>1</em> to the total number of atoms, <em>31250</em>), the atomic species, and the atom's <em>x</em>, <em>y</em>, <em>z</em> coordinates. Atomic serial numbers must be unique and any numbers may not be omitted. In this case, the atomic species is <em>1</em> for all atoms, and all atomic coordinates must be values between <em>0</em> and <em>71.3825</em>.<br><br>
+
+Its structure is extremely simple, so users should be able to easily create programs in languages they know (such as C or Python) to generate initial state. Creating complex initial states inside a LAMMPS script often requires advanced scripting skills, which can be a bit daunting for LAMMPS beginners. However, methods for generating initial states externally can circumvent this difficulty.<br><br>
+
+
+<h3>Importing the Initial Condition into LAMMPS script</h3>
+
+Let us actually read the file we created earlier. The script in <em>script</em> directly, <em>bccFe_read_data.lcm</em>, is designed to read the aforementioned <em>file.in</em> and perform structural relaxation. Its contents are displayed in full below.
+
+<pre>
+units		metal
+boundary p p p
+atom_style	atomic
+read_data file.in
+
+pair_style eam/fs
+pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+
+dump 1 all custom 100 bccFe_read_data.out id type xs ys zs
+neigh_modify every 1 check yes
+fix 1 all box/relax iso 0.0 vmax 0.001
+
+min_style cg
+minimize 1.0e-12 1.0e-12 1000 10000
+</pre>
+
+Lines 1 through 3 have appeared repeatedly in previous lectures, so no explanation  is given here.<br><br>
+
+In Line 4, the initial state data file <em>file.in</em> is read using <code>read_data</code> command. As you see here, the importing is extremely simple.<br><br>
+
+After that, as explained in the lecture on <a href="relax_en.html">structural relaxation</a>, structural relaxation is performed. No further explanation is necessary for those who already studied the previous lecture.<br><br>
+
+If this method is used, <code>lattice</code>, <code>create_box</code>, and <code>create_atoms</code> command previously used to create initial states are no longer necessary.<br><br>
+
+<h3>Execution of the Script</h3>
+
+Type the following in standard input:
+<pre>
+$work> lmp_serial -in script/read_data.lcm
+</pre>
+
+Once the calculation is complete, verify at standard output that the structure relaxation was successful. Then, load the <em>bccFe_read_data.out</em> file created in <em>work</em> directory into OVITO and examine the image.<br><br>
+
+<h3>Discussions</h3>
+
+The method introduced here seems preferable to creating initial values via scripting because it can be implemented in fewer lines of code. However, this isn't always the case, and there are drawbacks. For example, when saving records of the calculations performed, you must save both the script and the initial values together. When stacking a large number of case studies, keeping two files as a pair adds an extra step and can cause confusion. In other words, it's easier to record what you have calculated within a single script file. Therefore, it's best to adopt this method after understanding both its advantages and disadvantages.<br><br>
+
+Another common demand when using MD is to use the intermediate or final results from the previous MD run as the initial state of the next MD run. As mentioned earlier, the results are output by <code>dump ... custom</code> command. However, simply loading the output file as initial values won't work because of the difference of format. In this case, a program to convert the format is needed. We've learned a few examples of using <code>dump ... custom</code> command so far, all of which produced output files in a specific custom format. This format was chosen for analyzing results in OVITO. To convert it to the initial value format, it's best to write your own program. Since it only involves reading the file and saving it in a different format, it can be done with simple programming in any language.<br><br>
+
+Alternatively, you can use <a href="https://docs.lammps.org/write_data.html">write_data command</a>. This command saves the current state in a format readable by the aforementioned <code>read_data</code> command. This is the option for those who are not fond of programming.<br><br><br><br>
+
+<center>
+<a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="cascade_en.html">Radiation Damage</a>&nbsp&nbsp&nbspNext: <a href="edge_en.html">Inserting Edge Dislocation</a></center>
+<br><br>
+</body>
+</html>

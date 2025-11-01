@@ -1,0 +1,120 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<head>
+<title>Inserting Edge Dislocation</title>
+<link rel="stylesheet" href="style_en.css">
+</head>
+
+<body>
+<center><img src="logo_new.png" alt="logo" width="600"><br><br><h2>Inserting Edge Dislocation</h2></center>
+<br>
+
+<h3>Dislocations and Plastic Deformation</h3>
+The primary objective of this whole course is to provide a tutorial on molecular dynamics using LAMMPS, so I don't devote significant space to the details of materials mechanics. However, it would be helpful to briefly cover the essential fundamentals of materials mechanics necessary for this lecture.<br><br>
+
+If you've never heard of the term "edge dislocation", I recommend studying materials mechanics beforehand using a textbook or similar resource. Covering this general topic in this course would be too much. If you're not particularly interested in structural materials science, you should terminate the course.<br><br>
+
+As done in previous lectures, we will proceed using iron crystals as our sample material. As you already know from previous lectures, iron crystals possess a body-centered cubic (BCC) lattice structure at low and room temperatures. The atomic configurations of any dislocations, including edge dislocations, depend on its base crystal. Therefore, this lecture focuses specifically on materials with a BCC structure. This means the methods introduced here can also be applied to the cases when you deal with the other BCC metals, such as vanadium, tungsten, molybdenum, and niobium.<br><br>
+        
+The deformation of materials can be broadly categorized into two types. One is deformation that returns to its original shape when the external force ceases, known as elastic deformation. The other is deformation that does not return to its original state even after the external force ceases, and that retains the deformed state, known as plastic deformation. The latter is relevant to this lecture.<br><br>
+
+Most metals and ceramics possess crystalline structures, and their plastic deformation events can usually be modeled by the dynamics of linear lattice defects within the crystal, such as their generation, annihilation, and movement. These linear lattice defects are called dislocations. Therefore, studying dislocations is essentially synonymous with studying the plastic deformation of crystalline materials. Since dislocations can be experimentally observed by electron microscope, the process of a material's plastic deformation can also be experimentally observed to a certain extent.<br><br>
+
+<h3>Edge Dislocation</h3>
+
+There are several types of dislocations, and the one we will study here is called an edge dislocation. In simple terms, it is a lattice defect where an extra plane is inserted into the base crystal. First, please look at the diagram below.<br><br>
+
+<center><figure><img src="insert_edge_en.png" width="600"><br><br><figcaption>Fig. 1: Schematic Picture for Creating an Edge Dislocation</figcaption></figure></center>
+<br>
+
+In Fig. 1, a rectangular material sample is placed in the orthorhombic system. Note that the orthorhombic systems here has the <em>x</em>, <em>y</em>, and <em>z</em> directions as <em>[111]</em>, <em>[11-2]</em>, and <em>[-110]</em>, respectively; being slightly more complex than those used in previous lectures.<br><br>
+
+As mentioned above, dislocations are linear lattice defects, and their directions are determined by the base crystal structure. Notice that a thin plate stands at the bottom of the rectangular prism in the figure, and as can be seen from the figure, the direction perpendicular to the plate's face is <em>[111]</em>. Atoms are arranged periodically in this direction, and assume that one complete period is contained within this plate. Suppose we remove all the atoms contained within this plate and perform structural relaxation. The surfaces on the removed section would approach each other through the relaxation, restoring the bond. As a result, the upper part of the rectangular prism becomes to have an extra plane. At the boundary between the upper and lower parts, more precisely, at the top of the removed thin plate, crystal structure does not align properly. This misaligned region becomes a line in the <em>y</em>-direction, and this is called an edge dislocation.<br><br>
+
+Suppose we move the left wall of the thin plate to the right so that it aligns with the right wall. The displacement vector for this motion is <em>(1/2)[111]</em> if the lattice constant is taken as the unit of length. This vector, including its generalized notation <em>(1/2)<111></em>, is called the Burgers vector of this dislocation. Furthermore, in this case, the direction of the dislocation is <em><11-2></em>, as can be seen from the figure. Although not covered in this lecture, when this dislocation undergoes translational motion within the z-plane <em>(-110)</em>, that plane slides, i.e., undergoes plastic deformation. Therefore, to uniquely identify the dislocation, the slip plane information is sometimes included in the notation as <em>(1/2)<111>{110}</em>.<br>
+<br>
+
+<h3>Execution of Script</h3>
+The script <em>bccFe_edge_relax.lcm</em> in <em>script</em> directory implements the procedure for inserting edge dislocations into the iron crystal. To execute this in LAMMPS, type the following command at standard input:
+
+<pre>
+$ lmp_serial -in script/bccFe_edge_relax.lcm
+</pre>
+
+Load the dumped file <em>bccFe_edge_relax.out</em> into OVITO to verify the calculation succeeded. After loading the file, move the slider at the bottom left of the screen to the right to set it to the final step state. Then, perform <em>Add modification</em> steps in the same manner as the CNA analysis introduced in <a href="cascade_en.html">Radiation Damage</a>. Detailed on-screen procedures are described in <a href="edge_cna.html">CNA of an edge dislocation using OVITO</a>. If you are unsure, please refer to this document. If the procedure is correct, you'll see the dislocation as shown in the figure below.
+<br><br>
+
+<center><img src="bccFe_edge_relax.png" width="500"></center><br>
+
+Another analysis method is available. Clear all current Modifiers and select Dislocation Analysis (DXA) instead. Then, uncheck the second checkbox from the top labeled "Particles" and the third checkbox from the top labeled "Defect Mesh" in the "Visual elements" section of the Modifier panel. This should make the dislocation visible. Ensure that the "Input crystal type" at the bottom of the panel is set to BCC, in case the dislocation is not seen.<br><br>
+
+Highlighting "Dislocations" under "Visual elements" will display the Dislocation Display interface below. Select the bottom option, "Local character (screw/edge)." The dislocation should appear blue, confirming that the dislocation identified by DXA is an edge dislocation. While this example should be fine, if DXA becomes computationally heavy in the future, the CNA analysis above can provide a general overview.<br><br>
+
+
+<h3>Step-by-Step Analysis of Input Script</h3>
+<h4>Creating a Base Iron Crystal</h4>
+Here is the first three lines:
+<pre>
+units metal
+boundary p p p
+atom_style atomic
+</pre>   
+These three lines always appear. They define units, boundary conditions, and the attributes for atomic information.
+<pre>
+lattice	bcc 2.83 orient x 1 1 1 orient y 1 1 -2 orient z -1 1 0
+region box block 0 10 0 9 0 20 units lattice
+create_box 1 box
+create_atoms 1 box
+</pre>   
+
+Regarding the <code>lattice</code> command, note that the direction within the command is defined according to the <em>x</em>, <em>y</em>, and <em>z</em> directions shown in the figure above.<br><br>
+
+The following <code>region</code> command defines the box used for the simulation. Note that although it is labeled <code>units lattice</code>, the units are not lattice constants; instead, the unit along each direction corresponds to one period of the crystal.<br><br>
+
+The following two lines have appeared repeatedly, so no explanation should be necessary. This completes the creation of the BCC crystal in the rectangular prism shown in the figure above.
+
+<h4>Creating Vacuum Layers at Top/Bottom Parts</h4>
+The next block of script is:
+<pre>
+region lower_vacuum block INF INF INF INF INF 1.9
+delete_atoms region lower_vacuum
+region upper_vacuum block INF INF INF INF 18.1 INF
+delete_atoms region upper_vacuum
+</pre>
+
+As appeared in the lecture on <a href="shear_en.html">Shear Deformation</a>, this script also involves creating a vacuum at the bottom and top of the <em>z</em>-direction to cancel the periodic boundary. The first <code>region</code> command defines the bottom region named <em>lower_vacuum</em>, and the subsequent <code>delete_atoms</code> command removes the atoms contained within that region. The following two lines perform the same procedure for the top region. I believe there is nothing particularly challenging here for those who already studied all the previous lectures.
+
+<h4>Creating an Edge Dislocation</h4>
+The next block of script is:
+<pre>
+region edge_dis block 4.9 5.35 INF INF 0 9.8
+delete_atoms region edge_dis
+</pre>
+These two lines define the thin plate in the lower part of the rectangular prism shown in the schematic picture and remove all atoms belonging to that region. The reason for this operation has already been explained.<br><br>
+
+The final block of script is:
+<pre>
+pair_style eam/fs
+pair_coeff * * ./potentials/Fe_mm.eam.fs Fe
+neigh_modify every 1 delay 0 check yes
+dump 1 all custom 100 bcc_edge_relax.out mass type xs ys zs
+reset_timestep 0 
+fix 1 all box/relax iso 0.0 vmax 0.001
+thermo 100
+thermo_style custom step pe lx ly lz pxx pyy pzz
+min_style cg 
+minimize 1e-25 1e-12 50000 10000 
+</pre>
+
+The following section covers structural relaxation calculations to finally create an edge dislocation: defining the potential, specifying volume relaxation with <code>fix ... box/relax</code> command, designating the conjugate gradient method with <code>min_style</code> command, and finally executing the relaxation with <code>minimize</code> command. Since these concepts were all learnt in previous lectures, we won't repeat the details here. Audience unfamiliar with these commands are advised to return to <a href="relax_en.html">Structural Relaxation</a>.
+<br><br>
+    
+That concludes this script. By combining this script with previous ones, such as the one for performing shear deformation, we can model the motion of dislocation under the plastic deformation of materials at the atomic level and establish a method for evaluating material properties like strength.<br><br><br><br>
+    
+<center><a href="index.html">Contents</a>&nbsp&nbsp&nbspPrevious: <a href="read_data_en.html">Importing Initial State</a>&nbsp&nbsp&nbspNext: <a href="screw_en.html">Inserting Screw Dislocation</a></center>
+<br><br>
+</body>
+</html>
